@@ -1,12 +1,21 @@
 extern crate indexmap;
 extern crate rand;
+extern crate nom;
 
 use indexmap::map::{IndexMap,Keys};
 use rand::{thread_rng, Rng};
+use nom::{
+    IResult,
+    sequence::tuple,
+    character::complete::{digit1, multispace1}
+};
+
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::cmp::Eq;
 use std::hash::Hash;
+use std::fs::File;
+use std::io::{prelude::*, BufReader};
 
 pub struct NodeIter<'a,K> {
     nodes: Keys<'a,K,IndexMap<K,i32>>
@@ -394,6 +403,26 @@ impl Graph {
             None
         }
     }
+
+    pub fn from_file_ew(path: &str) -> std::io::Result<Graph>{
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+
+        let mut graph = Graph::new();
+
+        for line in reader.lines() {
+            let edge_line = line.unwrap();
+            let (_, (x,_,y,_,z)) = parse_edge_weight(&edge_line).unwrap();
+            let (u,v,w) = (x.parse::<i32>().unwrap(), y.parse::<i32>().unwrap(), z.parse::<i32>().unwrap());
+            graph.add_edge(u, v, w);
+        }
+
+        return Ok(graph);
+    }
+}
+
+fn parse_edge_weight(line: &str) -> IResult<&str,(&str,&str,&str,&str,&str)> {
+    tuple((digit1,multispace1,digit1,multispace1,digit1))(line)
 }
 
 // returns a complete graph on n nodes
@@ -636,5 +665,12 @@ mod tests {
         let total_cost = graph_clone.contract_edges(edge_list, |x,y| x*y);
 
         assert_eq!(total_cost,204);
+    }
+
+    #[test]
+    fn test_from_file_ew() {
+        let filename = "src/test_graph.ew";
+        let graph = Graph::from_file_ew(filename).unwrap();
+        assert_eq!(graph.order(), 64);
     }
 }
