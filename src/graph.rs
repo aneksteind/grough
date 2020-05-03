@@ -85,7 +85,7 @@ pub struct Graph<W> {
     order: u32
 }
 
-impl<W: Copy> Graph<W> {
+impl<W: Clone> Graph<W> {
     pub fn new() -> Self {
         Graph {
             node_map: IndexMap::new(),
@@ -137,14 +137,14 @@ impl<W: Copy> Graph<W> {
         // add (u,v,w)
         let u_map = self.neighbors_mut(&u).unwrap();
         if !u_map.contains_key(&v) {
-            u_map.insert(v, w);
+            u_map.insert(v, w.clone());
             back = true;
         }
 
         // add (v,u,w)
         let v_map = self.neighbors_mut(&v).unwrap();
         if !v_map.contains_key(&u) {
-            v_map.insert(u, w);
+            v_map.insert(u, w.clone());
             forth = true
         }
 
@@ -279,43 +279,41 @@ impl<W: Copy> Graph<W> {
         }
     }
 
-    pub fn set_weight(&mut self, u: &i32, v: &i32, w: &W) -> () {
+    pub fn set_weight(&mut self, u: &i32, v: &i32, w: W) -> () {
         if let Some(weight) = self.get_weight_mut(u,v) {
-            *weight = *w;
+            *weight = w.clone();
         }
 
         if let Some(weight) = self.get_weight_mut(v,u) {
-            *weight = *w;
+            *weight = w.clone();
         }
     }
 
     pub fn contraction_cost<F>(&mut self, u: &i32, v: &i32, combine: F) -> W where
-        F: Clone + Copy + Fn(W,W) -> W
+        F: Clone + Copy + Fn(&W,&W) -> W
     {
-        /* STEP 1: calculate the cost */
-
         // cost of this edge
-        let mut contraction_cost = *self.get_weight(u,v).unwrap();
+        let mut contraction_cost = self.get_weight(u,v).unwrap().clone();
 
         self.remove_edge(u,v);
 
         // costs of edges incident to u
         for x in self.neighbors(u).unwrap().keys() {
             let wn = self.get_weight(u,x).unwrap();
-            contraction_cost = combine(contraction_cost, *wn);
+            contraction_cost = combine(&contraction_cost, &wn);
         }
 
         // costs of edges incident to v
         for x in self.neighbors(v).unwrap().keys() {
             let wn = self.get_weight(v,x).unwrap();
-            contraction_cost = combine(contraction_cost, *wn);
+            contraction_cost = combine(&contraction_cost, &wn);
         }    
 
         contraction_cost
     }
 
     pub fn contract_edge<F>(&mut self, u: &i32, v: &i32, combine: F) -> () where
-        F: Clone + Copy + Fn(W,W) -> W
+        F: Clone + Copy + Fn(&W,&W) -> W
     {
         // calculate and save the new weights of edges incident to v
         let mut v_incident_weights = HashMap::new();
@@ -324,13 +322,13 @@ impl<W: Copy> Graph<W> {
             // if u and v are both incident to x, the weights will be combined
             if self.neighbors(&u).unwrap().contains_key(x) {
                 let wux = self.get_weight(u,x).unwrap();
-                let new_weight = combine(*wvx,*wux);
+                let new_weight = combine(wvx,wux);
                 v_incident_weights.insert(*x,new_weight);
             } 
             // otherwise the weight will simply stay the same as it was
             else {
                 let wvx = self.get_weight(v,x).unwrap();
-                v_incident_weights.insert(*x,*wvx);
+                v_incident_weights.insert(*x,wvx.clone());
             }
             
         }
@@ -341,12 +339,10 @@ impl<W: Copy> Graph<W> {
             self.remove_edge(&x,v);
 
             if self.contains_edge(&x,u) {
-                self.set_weight(&x,u,&wvx);
+                self.set_weight(&x,u, wvx);
             } else {
-                self.add_edge(x,*u,wvx);
-            }
-            
-            
+                self.add_edge(x,*u, wvx);
+            }   
         }
 
         self.remove_node(v);
@@ -366,7 +362,7 @@ impl<W: Copy> Graph<W> {
 
     // TODO: separate contraction from cost calculation
     pub fn contract_edges<F>(&mut self, edges: Vec<(i32,i32)>, base: W, combine: F) -> W
-    where F: Clone + Copy + Fn(W,W) -> W,
+    where F: Clone + Copy + Fn(&W,&W) -> W,
           W: std::ops::Add<Output=W>
     {
         let mut total_cost = base;
@@ -393,7 +389,7 @@ impl<W: Copy> Graph<W> {
     }
 
     pub fn contract_random_edge<F>(&mut self, combine: F) -> W 
-    where F: Clone + Copy + Fn(W,W) -> W,
+    where F: Clone + Copy + Fn(&W,&W) -> W,
     {
         let (u,v,_w) = self.random_edge();
         let (x,y) = (*u,*v);
@@ -572,7 +568,7 @@ mod tests {
         let mut graph = Graph::new();
 
         graph.add_edge(1,2,3);
-        graph.set_weight(&1,&2,&4);
+        graph.set_weight(&1,&2,4);
         let w = graph.get_weight(&1,&2).unwrap();
         assert_eq!(*w, 4);
     }
