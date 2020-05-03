@@ -17,11 +17,11 @@ use std::hash::Hash;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
-pub struct NodeIter<'a,K> {
-    nodes: Keys<'a,K,IndexMap<K,i128>>
+pub struct NodeIter<'a,K,W> {
+    nodes: Keys<'a,K,IndexMap<K,W>>
 }
 
-impl<'a,K> Iterator for NodeIter<'a,K> {
+impl<'a,K,W> Iterator for NodeIter<'a,K,W> {
     type Item = &'a K;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -29,18 +29,18 @@ impl<'a,K> Iterator for NodeIter<'a,K> {
     }
 }
 
-pub struct EdgeIter<'a, K> {
-    collection: &'a IndexMap<K,IndexMap<K,i128>>,
+pub struct EdgeIter<'a, K, W> {
+    collection: &'a IndexMap<K,IndexMap<K,W>>,
     u: usize,
     v: usize,
     seen: HashSet<(&'a K,&'a K)>
 }
 
-impl<'a, K> Iterator for EdgeIter<'a, K> where
+impl<'a, K, W> Iterator for EdgeIter<'a,K,W> where
     K: Hash + Eq 
 {
 
-    type Item = (&'a K, &'a K, &'a i128);
+    type Item = (&'a K, &'a K, &'a W);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.u < self.collection.len() {
@@ -78,14 +78,14 @@ impl<'a, K> Iterator for EdgeIter<'a, K> where
 }
 
 #[derive(Clone)]
-pub struct Graph {
-    node_map : IndexMap<i32,IndexMap<i32,i128>>,
-    edge_map: IndexMap<(i32,i32),i128>,
+pub struct Graph<W> {
+    node_map : IndexMap<i32,IndexMap<i32,W>>,
+    edge_map: IndexMap<(i32,i32),W>,
     size: u32,
     order: u32
 }
 
-impl Graph {
+impl<W: Copy> Graph<W> {
     pub fn new() -> Self {
         Graph {
             node_map: IndexMap::new(),
@@ -122,7 +122,7 @@ impl Graph {
     // adds an edge to the graph
     // if the edge is already in the graph
     // then nothing happens
-    pub fn add_edge(&mut self, u: i32, v: i32, w: i128) -> () {
+    pub fn add_edge(&mut self, u: i32, v: i32, w: W) -> () {
         let mut back = false;
         let mut forth = false;
 
@@ -164,7 +164,7 @@ impl Graph {
     }
 
     // TODO: adjust to edge_map field
-    pub fn edges(&self) -> EdgeIter<i32> {
+    pub fn edges(&self) -> EdgeIter<i32,W> {
         EdgeIter {
             collection: &self.node_map,
             u: 0,
@@ -173,17 +173,17 @@ impl Graph {
         }
     }
 
-    pub fn nodes(&self) -> NodeIter<i32> {
+    pub fn nodes(&self) -> NodeIter<i32,W> {
         NodeIter {
             nodes: self.node_map.keys()
         }
     }
 
-    pub fn neighbors(&self, u: &i32) -> Option<&IndexMap<i32,i128>> {
+    pub fn neighbors(&self, u: &i32) -> Option<&IndexMap<i32,W>> {
         self.node_map.get(u)
     }
 
-    pub fn neighbors_mut(&mut self, u: &i32) -> Option<&mut IndexMap<i32,i128>> {
+    pub fn neighbors_mut(&mut self, u: &i32) -> Option<&mut IndexMap<i32,W>> {
         self.node_map.get_mut(u)
     }
 
@@ -243,7 +243,7 @@ impl Graph {
     }
 
     // TODO: adjust to edge_map field
-    pub fn random_edge(&self) -> (&i32,&i32,&i128) {
+    pub fn random_edge(&self) -> (&i32,&i32,&W) {
         let mut rng = thread_rng();
 
         // get a node u in G
@@ -259,7 +259,7 @@ impl Graph {
         (u,v,w)
     }
 
-    pub fn get_weight(&self, u: &i32, v: &i32) -> Option<&i128> {
+    pub fn get_weight(&self, u: &i32, v: &i32) -> Option<&W> {
         if self.contains_edge(u,v) {
             self.node_map.get(u).unwrap().get(v)
         }
@@ -269,7 +269,7 @@ impl Graph {
         }
     }
 
-    pub fn get_weight_mut(&mut self, u: &i32, v: &i32) -> Option<&mut i128> {
+    pub fn get_weight_mut(&mut self, u: &i32, v: &i32) -> Option<&mut W> {
         if self.contains_edge(u,v) {
             self.node_map.get_mut(u).unwrap().get_mut(v)
         }
@@ -279,20 +279,19 @@ impl Graph {
         }
     }
 
-    pub fn set_weight(&mut self, u: &i32, v: &i32, w: i128) -> () {
+    pub fn set_weight(&mut self, u: &i32, v: &i32, w: &W) -> () {
         if let Some(weight) = self.get_weight_mut(u,v) {
-            *weight = w;
+            *weight = *w;
         }
 
         if let Some(weight) = self.get_weight_mut(v,u) {
-            *weight = w;
+            *weight = *w;
         }
     }
 
-    pub fn contract_edge<F>(&mut self, u: &i32, v: &i32, combine: F) -> i128 where
-        F: Clone + Copy + Fn(i128,i128) -> i128
+    pub fn contraction_cost<F>(&mut self, u: &i32, v: &i32, combine: F) -> W where
+        F: Clone + Copy + Fn(W,W) -> W
     {
-
         /* STEP 1: calculate the cost */
 
         // cost of this edge
@@ -312,8 +311,12 @@ impl Graph {
             contraction_cost = combine(contraction_cost, *wn);
         }    
 
-        /* STEP 2: contract the edge */
+        contraction_cost
+    }
 
+    pub fn contract_edge<F>(&mut self, u: &i32, v: &i32, combine: F) -> () where
+        F: Clone + Copy + Fn(W,W) -> W
+    {
         // calculate and save the new weights of edges incident to v
         let mut v_incident_weights = HashMap::new();
         for (x,wvx) in self.neighbors(&v).unwrap() {
@@ -338,7 +341,7 @@ impl Graph {
             self.remove_edge(&x,v);
 
             if self.contains_edge(&x,u) {
-                self.set_weight(&x,u,wvx);
+                self.set_weight(&x,u,&wvx);
             } else {
                 self.add_edge(x,*u,wvx);
             }
@@ -347,8 +350,6 @@ impl Graph {
         }
 
         self.remove_node(v);
-
-        contraction_cost
     }
 
     fn node_ref(&self, fusion: &HashMap<i32,i32>, v: i32) -> i32 {
@@ -363,9 +364,12 @@ impl Graph {
         *fused
     }
 
-    pub fn contract_edges<F>(&mut self, edges: Vec<(i32,i32)>, combine: F) -> i128
-    where F: Clone + Copy + Fn(i128,i128) -> i128 {
-        let mut total_cost = 0;
+    // TODO: separate contraction from cost calculation
+    pub fn contract_edges<F>(&mut self, edges: Vec<(i32,i32)>, base: W, combine: F) -> W
+    where F: Clone + Copy + Fn(W,W) -> W,
+          W: std::ops::Add<Output=W>
+    {
+        let mut total_cost = base;
 
         let mut overwrite = HashMap::<i32,i32>::new();
         for u in self.nodes() {
@@ -377,24 +381,28 @@ impl Graph {
             let v = self.node_ref(&overwrite, v);
 
             if u != v {
-                let cost = self.contract_edge(&u,&v,combine);
+                let cost = self.contraction_cost(&u, &v, combine);
+                self.contract_edge(&u,&v,combine);
                 let map = overwrite.get_mut(&v).unwrap();
                 *map = u;
-                total_cost += cost;
+                total_cost = total_cost + cost;
             }   
         }
 
         total_cost
     }
 
-    pub fn contract_random_edge<F>(&mut self, combine: F) -> i128 
-    where F: Clone + Copy + Fn(i128,i128) -> i128 {
+    pub fn contract_random_edge<F>(&mut self, combine: F) -> W 
+    where F: Clone + Copy + Fn(W,W) -> W,
+    {
         let (u,v,_w) = self.random_edge();
         let (x,y) = (*u,*v);
-        self.contract_edge(&x,&y,combine)
+        let cost = self.contraction_cost(&x, &y, combine);
+        self.contract_edge(&x,&y,combine);
+        cost
     }
 
-    pub fn edge_idx(&self, idx: usize) -> Option<(&i32,&i32,&i128)> {
+    pub fn edge_idx(&self, idx: usize) -> Option<(&i32,&i32,&W)> {
         if let Some(((u,v),w)) = self.edge_map.get_index(idx) {
             Some((u,v,w))
         }
@@ -404,7 +412,8 @@ impl Graph {
         }
     }
 
-    pub fn from_file_ew(path: &str) -> std::io::Result<Graph>{
+    pub fn from_file_ew(path: &str) -> std::io::Result<Graph<i128>> where
+        W: std::str::FromStr + std::fmt::Debug {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
 
@@ -425,43 +434,20 @@ fn parse_edge_weight(line: &str) -> IResult<&str,(&str,&str,&str,&str,&str)> {
     tuple((digit1,multispace1,digit1,multispace1,digit1))(line)
 }
 
-// returns a complete graph on n nodes
-pub fn k(n: i32) -> Graph {
-    let mut graph = Graph::new();
-
-    // add nodes
-    for u in 0..n {
-        graph.add_node(u);
-    }
-
-    // connect edges
-    for u in 0..n {
-        for v in 0..n {
-            if u < v{
-                let mut rng = thread_rng();
-                let w = rng.gen_range(0,100);
-                graph.add_edge(u,v,w);
-            }
-        }
-    }
-
-    graph
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_graph_init() {
-        let graph = Graph::new();
+        let graph = Graph::<i128>::new();
         assert_eq!(graph.order(), 0);
         assert_eq!(graph.size(), 0);
     }
 
     #[test]
     fn test_add_node() {
-        let mut graph = Graph::new();
+        let mut graph = Graph::<i128>::new();
         graph.add_node(1);
         assert_eq!(graph.order(), 1);
         assert!(graph.contains_node(&1));
@@ -488,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_random_node() {
-        let mut graph = Graph::new();
+        let mut graph = Graph::<i128>::new();
 
         graph.add_node(104);
         graph.add_node(201);
@@ -544,7 +530,7 @@ mod tests {
 
     #[test]
     fn test_nodes() {
-        let mut graph = Graph::new();
+        let mut graph = Graph::<i128>::new();
 
         graph.add_node(1);
         graph.add_node(2);
@@ -586,7 +572,7 @@ mod tests {
         let mut graph = Graph::new();
 
         graph.add_edge(1,2,3);
-        graph.set_weight(&1,&2,4);
+        graph.set_weight(&1,&2,&4);
         let w = graph.get_weight(&1,&2).unwrap();
         assert_eq!(*w, 4);
     }
@@ -603,7 +589,8 @@ mod tests {
         graph.add_edge(4,2,7);
 
         // contract an edge
-        let contraction_cost = graph.contract_edge(&1, &2, |x,y| x + y);
+        let contraction_cost = graph.contraction_cost(&1,&2, |x,y| x+y);
+        graph.contract_edge(&1, &2, |x,y| x + y);
 
         // assert cost is correct
         assert_eq!(contraction_cost, 19);
@@ -662,7 +649,7 @@ mod tests {
         ];
 
         let mut graph_clone = graph.clone();
-        let total_cost = graph_clone.contract_edges(edge_list, |x,y| x*y);
+        let total_cost = graph_clone.contract_edges(edge_list, 0, |x,y| x*y);
 
         assert_eq!(total_cost,204);
     }
@@ -670,7 +657,7 @@ mod tests {
     #[test]
     fn test_from_file_ew() {
         let filename = "src/test_graph.ew";
-        let graph = Graph::from_file_ew(filename).unwrap();
+        let graph = Graph::<i128>::from_file_ew(filename).unwrap();
         assert_eq!(graph.order(), 64);
     }
 }
