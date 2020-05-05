@@ -3,6 +3,7 @@ extern crate rand;
 extern crate nom;
 
 use indexmap::map::{IndexMap,Keys};
+use indexmap::set::{IndexSet};
 use rand::{thread_rng, Rng};
 use nom::{
     IResult,
@@ -10,76 +11,29 @@ use nom::{
     character::complete::{digit1, multispace1}
 };
 
-use std::collections::HashSet;
 use std::collections::HashMap;
 use std::cmp::Eq;
 use std::hash::Hash;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
-pub struct NodeIter<'a,K,W> {
-    nodes: Keys<'a,K,IndexMap<K,W>>
-}
-
-impl<'a,K,W> Iterator for NodeIter<'a,K,W> {
-    type Item = &'a K;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.nodes.next()
-    }
-}
-
 pub struct EdgeIter<'a, K, W> {
-    collection: &'a IndexMap<K,IndexMap<K,W>>,
-    u: usize,
-    v: usize,
-    seen: HashSet<(&'a K,&'a K)>
+    edges: Keys<'a,K,W>,
 }
 
 impl<'a, K, W> Iterator for EdgeIter<'a,K,W> where
     K: Hash + Eq 
 {
-
-    type Item = (&'a K, &'a K, &'a W);
+    type Item = &'a K;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.u < self.collection.len() {
-
-            let (u,vs) = self.collection.get_index(self.u).unwrap();
-
-            if self.v >= vs.len() {
-                self.v = 0
-            }
-
-            let (v,w) = vs.get_index(self.v).unwrap();
-
-            self.v = (self.v + 1) % vs.len();
-
-            if self.v == 0 {
-                self.u += 1
-            }
-
-            if !self.seen.contains(&(u,v)){
-                self.seen.insert((u,v));
-                self.seen.insert((v,u));
-
-                Some((u,v,w))
-            }
-
-            else {
-                self.next()
-            }    
-        }
-
-        else {
-            None
-        }
+        self.edges.next()
     }
 }
 
 #[derive(Clone)]
 pub struct Graph<W> {
-    node_map : IndexMap<i32,IndexMap<i32,W>>,
+    node_map : IndexMap<i32,IndexSet<i32>>,
     edge_map: IndexMap<(i32,i32),W>,
     size: u32,
     order: u32
@@ -109,7 +63,7 @@ impl<W: Clone> Graph<W> {
     // already exists then nothing happens
     pub fn add_node(&mut self, u: i32) -> () {
         if !self.node_map.contains_key(&u) {
-            let node_map = IndexMap::new();
+            let node_map = IndexSet::new();
             self.node_map.insert(u, node_map);
             self.order += 1
         }
@@ -136,26 +90,22 @@ impl<W: Clone> Graph<W> {
 
         // add (u,v,w)
         let u_map = self.neighbors_mut(&u).unwrap();
-        if !u_map.contains_key(&v) {
-            u_map.insert(v, w.clone());
+        if !u_map.contains(&v) {
+            u_map.insert(v);
             back = true;
         }
 
         // add (v,u,w)
         let v_map = self.neighbors_mut(&v).unwrap();
-        if !v_map.contains_key(&u) {
-            v_map.insert(u, w.clone());
+        if !v_map.contains(&u) {
+            v_map.insert(u);
             forth = true
         }
 
-        let pair = if u < v {
-            (u,v)
-        } else {
-            (v,u)
-        };
+        let pair = self.edge(u,v);
 
         if !self.edge_map.contains_key(&pair) {
-            self.edge_map.insert(pair, w);
+            self.edge_map.insert(pair, w.clone());
         }
 
         if back && forth {
@@ -163,27 +113,25 @@ impl<W: Clone> Graph<W> {
         }
     }
 
-    // TODO: adjust to edge_map field
-    pub fn edges(&self) -> EdgeIter<i32,W> {
-        EdgeIter {
-            collection: &self.node_map,
-            u: 0,
-            v: 0,
-            seen: HashSet::new()
+    fn edge(&self, u: i32, v: i32) -> (i32,i32) {
+        if u < v { (u,v) } else { (v,u) }
+    }
+
+    pub fn edges(&self) -> EdgeIter<(i32,i32),W> {
+        EdgeIter{
+            edges: self.edge_map.keys()
         }
     }
 
-    pub fn nodes(&self) -> NodeIter<i32,W> {
-        NodeIter {
-            nodes: self.node_map.keys()
-        }
+    pub fn nodes(&self) -> Keys<i32,IndexSet<i32>> {
+        self.node_map.keys()
     }
 
-    pub fn neighbors(&self, u: &i32) -> Option<&IndexMap<i32,W>> {
+    pub fn neighbors(&self, u: &i32) -> Option<&IndexSet<i32>> {
         self.node_map.get(u)
     }
 
-    pub fn neighbors_mut(&mut self, u: &i32) -> Option<&mut IndexMap<i32,W>> {
+    pub fn neighbors_mut(&mut self, u: &i32) -> Option<&mut IndexSet<i32>> {
         self.node_map.get_mut(u)
     }
 
@@ -191,6 +139,10 @@ impl<W: Clone> Graph<W> {
         if self.contains_edge(u,v) {
             self.neighbors_mut(u).unwrap().swap_remove(v);
             self.neighbors_mut(v).unwrap().swap_remove(u);
+
+            let e = self.edge(*u,*v);
+            self.edge_map.remove(&e);
+
             self.size -= 1;
         }
     }
@@ -199,35 +151,19 @@ impl<W: Clone> Graph<W> {
         // get neighbors of u after removing u
         if let Some(neighbs) = self.node_map.swap_remove(u) {
             // remove u from each neighbor
-            for n in neighbs.keys() {
+            for n in neighbs.iter() {
                 self.node_map.get_mut(n).unwrap().swap_remove(u);
+                let e = self.edge(*u,*n);
+                self.edge_map.swap_remove(&e);
                 self.size -= 1;
             }
             self.order -= 1;
         }
     }
 
-    // TODO: adjust to edge_map field
     pub fn contains_edge(&self, u: &i32, v: &i32) -> bool {
-        if !self.contains_node(u) {
-            return false
-        }
-
-        if !self.contains_node(v) {
-            return false
-        }
-
-        let u_map = self.neighbors(u).unwrap();
-        if !u_map.contains_key(v) {
-            return false
-        }
-
-        let v_map = self.neighbors(v).unwrap();
-        if !v_map.contains_key(u) {
-            return false
-        }
-
-        true
+        let e = self.edge(*u,*v);
+        self.edge_map.contains_key(&e)
     }
 
     pub fn random_node(&self) -> &i32 {
@@ -242,26 +178,21 @@ impl<W: Clone> Graph<W> {
         v
     }
 
-    // TODO: adjust to edge_map field
-    pub fn random_edge(&self) -> (&i32,&i32,&W) {
+    pub fn random_edge(&self) -> (&i32,&i32) {
         let mut rng = thread_rng();
 
         // get a node u in G
-        let upper = self.order as usize;
-        let u_index: usize = rng.gen_range(0, upper);
-        let (u,u_map) = self.node_map.get_index(u_index).unwrap();
+        let upper = self.size as usize;
+        let edge_index: usize = rng.gen_range(0, upper);
+        let ((u,v),_w) = self.edge_map.get_index(edge_index).unwrap();
 
-        // get a random neighbor v of u
-        let u_map_size = u_map.len();
-        let v_index = rng.gen_range(0,u_map_size);
-        let (v,w) = u_map.get_index(v_index).unwrap();
-
-        (u,v,w)
+        (u,v)
     }
 
     pub fn get_weight(&self, u: &i32, v: &i32) -> Option<&W> {
         if self.contains_edge(u,v) {
-            self.node_map.get(u).unwrap().get(v)
+            let ref key = self.edge(*u,*v);
+            self.edge_map.get(key)
         }
 
         else {
@@ -271,7 +202,8 @@ impl<W: Clone> Graph<W> {
 
     pub fn get_weight_mut(&mut self, u: &i32, v: &i32) -> Option<&mut W> {
         if self.contains_edge(u,v) {
-            self.node_map.get_mut(u).unwrap().get_mut(v)
+            let ref key = self.edge(*u,*v);
+            self.edge_map.get_mut(key)
         }
 
         else {
@@ -289,24 +221,26 @@ impl<W: Clone> Graph<W> {
         }
     }
 
-    pub fn contraction_cost<F>(&mut self, u: &i32, v: &i32, combine: F) -> W where
+    pub fn contraction_cost<F>(&self, u: &i32, v: &i32, combine: F) -> W where
         F: Clone + Copy + Fn(&W,&W) -> W
     {
         // cost of this edge
         let mut contraction_cost = self.get_weight(u,v).unwrap().clone();
 
-        self.remove_edge(u,v);
-
         // costs of edges incident to u
-        for x in self.neighbors(u).unwrap().keys() {
-            let wn = self.get_weight(u,x).unwrap();
-            contraction_cost = combine(&contraction_cost, &wn);
+        for x in self.neighbors(u).unwrap().iter() {
+            if x != v {
+                let wn = self.get_weight(u,x).unwrap();
+                contraction_cost = combine(&contraction_cost, &wn);
+            }
         }
 
         // costs of edges incident to v
-        for x in self.neighbors(v).unwrap().keys() {
-            let wn = self.get_weight(v,x).unwrap();
-            contraction_cost = combine(&contraction_cost, &wn);
+        for x in self.neighbors(v).unwrap().iter() {
+            if x != u {
+                let wn = self.get_weight(v,x).unwrap();
+                contraction_cost = combine(&contraction_cost, &wn);
+            }
         }    
 
         contraction_cost
@@ -315,12 +249,15 @@ impl<W: Clone> Graph<W> {
     pub fn contract_edge<F>(&mut self, u: &i32, v: &i32, combine: F) -> () where
         F: Clone + Copy + Fn(&W,&W) -> W
     {
+        self.remove_edge(u,v);
+
         // calculate and save the new weights of edges incident to v
         let mut v_incident_weights = HashMap::new();
-        for (x,wvx) in self.neighbors(&v).unwrap() {
+        for x in self.neighbors(&v).unwrap() {
             
             // if u and v are both incident to x, the weights will be combined
-            if self.neighbors(&u).unwrap().contains_key(x) {
+            if self.neighbors(&u).unwrap().contains(x) {
+                let wvx = self.get_weight(v, x).unwrap();
                 let wux = self.get_weight(u,x).unwrap();
                 let new_weight = combine(wvx,wux);
                 v_incident_weights.insert(*x,new_weight);
@@ -391,7 +328,7 @@ impl<W: Clone> Graph<W> {
     pub fn contract_random_edge<F>(&mut self, combine: F) -> W 
     where F: Clone + Copy + Fn(&W,&W) -> W,
     {
-        let (u,v,_w) = self.random_edge();
+        let (u,v) = self.random_edge();
         let (x,y) = (*u,*v);
         let cost = self.contraction_cost(&x, &y, combine);
         self.contract_edge(&x,&y,combine);
@@ -487,7 +424,7 @@ mod tests {
         graph.add_edge(201,103,1);
         graph.add_edge(104,104,1);
 
-        let (u,v,_w) = graph.random_edge();
+        let (u,v) = graph.random_edge();
         assert!(graph.contains_edge(u,v));
     }
 
@@ -501,7 +438,6 @@ mod tests {
         graph.remove_node(&2);
 
         assert!(!graph.contains_edge(&2,&3));
-        assert!(!graph.contains_edge(&1,&2));
         assert!(!graph.contains_node(&2));
 
         assert_eq!(graph.order(), 2);
@@ -548,9 +484,9 @@ mod tests {
 
         let mut es = graph.edges();
 
-        assert_eq!(es.next(), Some((&1,&2,&0)));
-        assert_eq!(es.next(), Some((&1,&3,&0)));
-        assert_eq!(es.next(), Some((&2,&3,&0)));
+        assert_eq!(es.next(), Some(&(1,2)));
+        assert_eq!(es.next(), Some(&(1,3)));
+        assert_eq!(es.next(), Some(&(2,3)));
         assert_eq!(es.next(), None);
     }
 
@@ -559,7 +495,7 @@ mod tests {
         let mut graph = Graph::new();
 
         graph.add_edge(1,2,3);
-        let w = graph.get_weight(&1,&2).unwrap();
+        let w = graph.get_weight(&2,&1).unwrap();
         assert_eq!(*w, 3);
     }
 
@@ -628,7 +564,6 @@ mod tests {
         graph.add_edge(4,6,2);
         graph.add_edge(5,7,2);
         graph.add_edge(6,7,2);
-
 
         let edge_list : Vec<(i32,i32)> = vec![
             (1,3),
