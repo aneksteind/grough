@@ -1,4 +1,9 @@
-use nom::{IResult, character::complete::{digit1, multispace1, multispace0}, bytes::complete::{tag, take_till}, sequence::tuple};
+use nom::{
+    bytes::complete::{tag, take_till},
+    character::complete::{digit1, multispace0, multispace1},
+    sequence::tuple,
+    IResult,
+};
 use std::fmt::Debug;
 use std::fs::File;
 use std::hash::Hash;
@@ -38,11 +43,9 @@ fn parse_edge_weight(line: &str) -> IResult<&str, (&str, &str, &str, &str, &str)
     tuple((digit1, multispace1, digit1, multispace1, digit1))(line)
 }
 
-fn is_edge(input: &str) -> bool {
-    
-}
+fn is_edge(input: &str) -> bool {}
 
-fn from_named<V: Vertex, E: Edge>(path: &str) -> std::io::Result<Graph<V, E>> 
+fn from_named<V: Vertex, E: Edge>(path: &str) -> std::io::Result<Graph<V, E>>
 where
     V: Debug + PartialOrd + Hash + Eq + Copy + FromStr,
     E: FromStr + Debug + Clone,
@@ -56,10 +59,16 @@ where
 
     for line in reader.lines() {
         let line = line.unwrap();
-        let edge_parser = tuple((tag("{"), multispace0, digit1, tag(","), multispace0, digit1, tag("{")));
-        let edge_finder = take_till(edge_parser);
-        while let Ok(())
-        let (_, (x, _, y, _, z)) = parse_edge_weight(&edge_line).unwrap();
+        let edge_parser = tuple((
+            tag("{"),
+            multispace0,
+            digit1,
+            tag(","),
+            multispace0,
+            digit1,
+            tag("{"),
+        ));
+        let (_, (x, _, y, _, z)) = parse_edge_weight(&line).unwrap();
         let (u, v, w) = (
             x.parse::<V>().unwrap(),
             y.parse::<V>().unwrap(),

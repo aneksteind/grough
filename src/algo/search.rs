@@ -1,19 +1,18 @@
 use crate::graph::{Edge, Graph, Vertex};
-use std::collections::{VecDeque, HashSet};
-
+use std::collections::{HashSet, VecDeque};
 
 pub struct Bfs<'a, V: Vertex, E: Edge> {
     pub queue: VecDeque<&'a V>,
     pub seen: HashSet<&'a V>,
-    pub graph: &'a Graph<V, E>
+    pub graph: &'a Graph<V, E>,
 }
 
-impl <'a, V: Vertex, E: Edge> Bfs<'a, V, E> {
+impl<'a, V: Vertex, E: Edge> Bfs<'a, V, E> {
     pub fn new(v: &'a V, g: &'a Graph<V, E>) -> Self {
         Bfs {
-            queue:vec![v].into_iter().collect(),
+            queue: vec![v].into_iter().collect(),
             seen: HashSet::new(),
-            graph: g
+            graph: g,
         }
     }
 
@@ -35,13 +34,11 @@ impl <'a, V: Vertex, E: Edge> Bfs<'a, V, E> {
     }
 }
 
-
 pub fn bfs<'a, V: Vertex, E: Edge>(
     start: &'a V,
     end: &'a V,
     g: &'a Graph<V, E>,
 ) -> Option<Vec<&'a V>> {
-
     let mut bfs_visitor = Bfs::new(start, g);
     let mut path = Vec::new();
     while let Some(v) = bfs_visitor.next() {
@@ -54,19 +51,18 @@ pub fn bfs<'a, V: Vertex, E: Edge>(
     None
 }
 
-
 pub struct Dfs<'a, V: Vertex, E: Edge> {
     pub stack: Vec<&'a V>,
     pub seen: HashSet<&'a V>,
-    pub graph: &'a Graph<V, E>
+    pub graph: &'a Graph<V, E>,
 }
 
-impl <'a, V: Vertex, E: Edge> Dfs<'a, V, E> {
+impl<'a, V: Vertex, E: Edge> Dfs<'a, V, E> {
     pub fn new(v: &'a V, g: &'a Graph<V, E>) -> Self {
         Dfs {
             stack: vec![v],
             seen: HashSet::new(),
-            graph: g
+            graph: g,
         }
     }
 
@@ -88,13 +84,11 @@ impl <'a, V: Vertex, E: Edge> Dfs<'a, V, E> {
     }
 }
 
-
 pub fn dfs<'a, V: Vertex, E: Edge>(
     start: &'a V,
     end: &'a V,
     g: &'a Graph<V, E>,
 ) -> Option<Vec<&'a V>> {
-
     if !g.contains_node(start) {
         return None;
     }

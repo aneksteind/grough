@@ -1,10 +1,9 @@
 extern crate grough;
 
-use grough::algo::search::{dfs, bfs};
+use grough::algo::search::{bfs, dfs};
 use grough::graph::Graph;
 
-
-fn graph_1() -> Graph::<i32, i128> {
+fn graph_1() -> Graph<i32, i128> {
     let mut graph = Graph::<i32, i128>::new();
     graph.add_edge(1, 2, 1);
     graph.add_edge(2, 3, 1);
@@ -17,7 +16,6 @@ fn graph_1() -> Graph::<i32, i128> {
 
 #[test]
 fn test_dfs() {
-    
     let graph = graph_1();
 
     let result = dfs(&1, &4, &graph);
