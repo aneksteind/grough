@@ -215,10 +215,3 @@ fn test_contract_edges() {
 
     assert_eq!(total_cost, 204);
 }
-
-#[test]
-fn test_from_file_ew() {
-    let filename = "src/test_graph.ew";
-    let graph = from_file_ew::<i32, i32>(filename).unwrap();
-    assert_eq!(graph.order(), 64);
-}
