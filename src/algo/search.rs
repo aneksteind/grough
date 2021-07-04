@@ -91,7 +91,7 @@ impl <'a, V: Vertex, E: Edge> Dfs<'a, V, E> {
 
 pub fn dfs<'a, V: Vertex, E: Edge>(
     start: &'a V,
-    end: &'a V,
+    end: Option<&'a V>,
     g: &'a Graph<V, E>,
 ) -> Option<Vec<&'a V>> {
 
@@ -99,14 +99,18 @@ pub fn dfs<'a, V: Vertex, E: Edge>(
         return None;
     }
 
-    let mut dfs_visitor = Bfs::new(start, g);
+    let mut dfs_visitor = Dfs::new(start, g);
     let mut path = Vec::new();
     while let Some(v) = dfs_visitor.next() {
         path.push(v);
-        if v == end {
+        if end.is_some() && v == end.unwrap() {
             return Some(path);
         }
     }
 
-    None
+    if end.is_some() {
+        None
+    } else {
+        Some(path)
+    }
 }

@@ -80,6 +80,12 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         return self.node_map.contains_key(u);
     }
 
+    pub fn add_edges(&mut self, edges: Vec<(V,V,E)>) -> () {
+        for (u,v,w) in edges {
+            self.add_edge(u,v,w);
+        }
+    }
+
     // adds an edge to the graph
     // if the edge is already in the graph
     // then nothing happens
