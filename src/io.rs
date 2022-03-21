@@ -14,14 +14,14 @@ use crate::graph::{Edge, Graph, Vertex};
 /// Reads a graph from a file with integer node IDs and integer edge weights.
 ///
 /// Example:
-/// ```
+/// ```ignore
 /// // test.ew
 /// 0 1 1
 /// 1 2 1
 /// 2 0 3
 /// ```
 ///
-/// ```rust
+/// ```rust,ignore
 /// let graph = from_file_ew::<i32, i32>("test.ew").unwrap();
 /// assert_eq!(graph.order(), 3);
 /// ```
