@@ -222,3 +222,21 @@ fn test_from_file_ew() {
     let graph = from_file_ew::<i32, i32>(filename).unwrap();
     assert_eq!(graph.order(), 64);
 }
+
+#[test]
+fn test_degree() {
+    let mut graph = Graph::new();
+
+    // inspired MERA graph from netcon
+    graph.add_edge(1, 2, 2);
+    graph.add_edge(1, 3, 2);
+    graph.add_edge(1, 4, 2);
+    graph.add_edge(2, 3, 2);
+
+    assert_eq!(graph.degree(&1), Some(3));
+    assert_eq!(graph.degree(&2), Some(2));
+
+    graph.remove_edge(&2, &3);
+
+    assert_eq!(graph.degree(&2), Some(1));
+}
