@@ -382,4 +382,9 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
             None
         }
     }
+
+    /// Gets the degree of a vertex, if it exists.
+    pub fn degree(&self, u: &V) -> Option<usize> {
+        self.neighbors(u).map(|ns| ns.len())
+    }
 }
