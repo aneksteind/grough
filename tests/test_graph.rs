@@ -218,7 +218,7 @@ fn test_contract_edges() {
 
 #[test]
 fn test_from_file_ew() {
-    let filename = "src/test_graph.ew";
+    let filename = "tests/graphs/test_graph1.ew";
     let graph = from_file_ew::<i32, i32>(filename).unwrap();
     assert_eq!(graph.order(), 64);
 }
