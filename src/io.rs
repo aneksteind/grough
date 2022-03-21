@@ -51,6 +51,7 @@ where
     return Ok(graph);
 }
 
+/// Parses a line of an edge-weight (.ew) file.
 fn parse_edge_weight(line: &str) -> IResult<&str, (&str, &str, &str, &str, &str)> {
     tuple((digit1, multispace1, digit1, multispace1, digit1))(line)
 }
