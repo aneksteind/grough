@@ -2,13 +2,18 @@ use crate::graph::{Edge, Graph, Vertex};
 use std::collections::{VecDeque, HashSet};
 
 
+/// Keeps track of breadth-first search progress.
 pub struct Bfs<'a, V: Vertex, E: Edge> {
+    /// the breadth-first search queue
     pub queue: VecDeque<&'a V>,
+    /// the collection of visited vertices
     pub seen: HashSet<&'a V>,
+    /// a reference to graph of interest
     pub graph: &'a Graph<V, E>
 }
 
 impl <'a, V: Vertex, E: Edge> Bfs<'a, V, E> {
+
     pub fn new(v: &'a V, g: &'a Graph<V, E>) -> Self {
         Bfs {
             queue:vec![v].into_iter().collect(),

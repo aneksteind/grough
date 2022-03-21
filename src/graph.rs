@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+/// Iterates over edges of a graph.
 pub struct EdgeIter<'a, K, E> {
     edges: Keys<'a, K, E>,
 }
@@ -20,7 +21,8 @@ where
     K: Hash + Eq,
 {
     type Item = &'a K;
-
+ 
+    /// Gets the next edge of the graph, if it exists.
     fn next(&mut self) -> Option<Self::Item> {
         self.edges.next()
     }
@@ -46,6 +48,7 @@ pub struct Graph<V: Vertex, E: Edge> {
 }
 
 impl<V: Vertex, E: Edge> Graph<V, E> {
+    /// Constructs an empty graph.
     pub fn new() -> Self {
         Graph {
             node_map: IndexMap::new(),
@@ -55,18 +58,19 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
-    // The number of edges in the graph
+    /// Gets the number of edges in the graph.
     pub fn size(&self) -> u32 {
         self.size
     }
 
-    // The number of nodes in the graph
+    /// Gets the number of nodes in the graph.
     pub fn order(&self) -> u32 {
         self.order
     }
 
-    // adds a node to the graph, if the node
-    // already exists then nothing happens
+    /// Adds a node to the graph.
+    /// 
+    /// If the node already exists, then nothing happens.
     pub fn add_node(&mut self, u: V) -> () {
         if !self.node_map.contains_key(&u) {
             let u_neibs = IndexSet::new();
@@ -75,20 +79,21 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
-    // checks if a node is in the graph
+    /// Checks if a node is in the graph.
     pub fn contains_node(&self, u: &V) -> bool {
         return self.node_map.contains_key(u);
     }
 
+    /// Adds a collection of edges to the graph.
     pub fn add_edges(&mut self, edges: Vec<(V,V,E)>) -> () {
         for (u,v,w) in edges {
             self.add_edge(u,v,w);
         }
     }
 
-    // adds an edge to the graph
-    // if the edge is already in the graph
-    // then nothing happens
+    /// Adds an edge to the graph.
+    /// 
+    /// If the edge is already in the graph, then nothing happens.
     pub fn add_edge(&mut self, u: V, v: V, w: E) -> () {
         let mut back = false;
         let mut forth = false;
@@ -126,7 +131,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
-    // orders nodes in edge ascending
+    /// Orders nodes in edge ascending.
     fn edge(&self, u: V, v: V) -> (V, V) {
         if u < v {
             (u, v)
@@ -135,29 +140,29 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
-    // an iterator over all (u,v) edges in the graph
+    /// Gets an iterator over all (u,v) edges.
     pub fn edges(&self) -> EdgeIter<(V, V), E> {
         EdgeIter {
             edges: self.edge_map.keys(),
         }
     }
 
-    // an iterator over all nodes in the graph
+    /// Gets an iterator over all nodes.
     pub fn nodes(&self) -> Keys<V, IndexSet<V>> {
         self.node_map.keys()
     }
 
-    // collection of nodes incident to `u`
+    /// Get collection of nodes incident to `u`.
     pub fn neighbors(&self, u: &V) -> Option<&IndexSet<V>> {
         self.node_map.get(u)
     }
 
-    // mutable collection of nodes incident to `u`
+    /// Get a mutable collection of nodes incident to `u`.
     pub fn neighbors_mut(&mut self, u: &V) -> Option<&mut IndexSet<V>> {
         self.node_map.get_mut(u)
     }
 
-    // removes an edge (u,v) from the graph
+    /// Removes an edge (u,v) from the graph.
     pub fn remove_edge(&mut self, u: &V, v: &V) -> () {
         if self.contains_edge(u, v) {
             self.neighbors_mut(u).unwrap().swap_remove(v);
@@ -170,7 +175,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
-    // removes a node `u` from the graph
+    /// Removes a node `u` from the graph.
     pub fn remove_node(&mut self, u: &V) -> () {
         // get neighbors of u after removing u
         if let Some(neighbs) = self.node_map.swap_remove(u) {
@@ -185,13 +190,13 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
-    // checks edge membership in the graph
+    /// Checks edge membership in the graph.
     pub fn contains_edge(&self, u: &V, v: &V) -> bool {
         let e = self.edge(*u, *v);
         self.edge_map.contains_key(&e)
     }
 
-    // grabs a random node from the graph
+    /// Grabs a random node from the graph.
     pub fn random_node(&self) -> &V {
         let mut rng = thread_rng();
 
@@ -204,7 +209,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         v
     }
 
-    // grabs a random edge from the graph
+    /// Grabs a random edge.
     pub fn random_edge(&self) -> (&V, &V) {
         let mut rng = thread_rng();
 
@@ -216,7 +221,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         (u, v)
     }
 
-    // gets the weight of some edge (u,v) in the graph
+    /// Gets the weight of some edge (u,v).
     pub fn get_weight(&self, u: &V, v: &V) -> Option<&E> {
         if self.contains_edge(u, v) {
             let ref key = self.edge(*u, *v);
@@ -226,7 +231,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
-    // gets the mutable weight of some edge (u,v) in the graph
+    /// Gets the mutable weight of some edge (u,v) in the graph.
     pub fn get_weight_mut(&mut self, u: &V, v: &V) -> Option<&mut E> {
         if self.contains_edge(u, v) {
             let ref key = self.edge(*u, *v);
@@ -236,6 +241,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
+    /// Sets the weight of an edge.
     pub fn set_weight(&mut self, u: &V, v: &V, w: E) -> () {
         if let Some(weight) = self.get_weight_mut(u, v) {
             *weight = w.clone();
@@ -246,6 +252,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         }
     }
 
+    /// Calculates the cost of contracting two nodes in the graph.
     pub fn contraction_cost<F>(&self, u: &V, v: &V, combine: &F) -> E
     where
         F: Fn(&E, &E) -> E,
@@ -272,6 +279,9 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         contraction_cost
     }
 
+    /// Contracts two nodes.
+    /// 
+    /// Updates the weights of the graph using the `combine` function.
     pub fn contract_edge<F>(&mut self, u: &V, v: &V, combine: F) -> ()
     where
         F: Clone + Copy + Fn(&E, &E) -> E,
@@ -310,7 +320,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         self.remove_node(v);
     }
 
-    // gets the new identity of some node `v` given a mapping of aliases
+    /// Gets the new identity of some node `v` given a mapping of aliases.
     fn node_ref(&self, fusion: &HashMap<V, V>, v: V) -> V {
         let mut fused = fusion.get(&v).unwrap();
         let mut last = v;
@@ -323,7 +333,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         *fused
     }
 
-    // contract a sequence of edges
+    /// Contracts a sequence of edges.
     pub fn contract_edges<F>(&mut self, edges: Vec<(V, V)>, base: E, combine: &F) -> E
     where
         F: Clone + Copy + Fn(&E, &E) -> E,
@@ -352,6 +362,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         total_cost
     }
 
+    /// Contracts a random edge.
     pub fn contract_random_edge<F>(&mut self, combine: F) -> E
     where
         F: Clone + Copy + Fn(&E, &E) -> E,
@@ -363,6 +374,7 @@ impl<V: Vertex, E: Edge> Graph<V, E> {
         cost
     }
 
+    /// Gets an edge by its index.
     pub fn edge_idx(&self, idx: usize) -> Option<(&V, &V, &E)> {
         if let Some(((u, v), w)) = self.edge_map.get_index(idx) {
             Some((u, v, w))
