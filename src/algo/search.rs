@@ -40,7 +40,7 @@ impl <'a, V: Vertex, E: Edge> Bfs<'a, V, E> {
     }
 }
 
-
+/// Performs a breadth-first search of a given graph.
 pub fn bfs<'a, V: Vertex, E: Edge>(
     start: &'a V,
     end: &'a V,
