@@ -11,7 +11,20 @@ use std::str::FromStr;
 
 use crate::graph::{Edge, Graph, Vertex};
 
-// reads a graph from a file with integer edge weights
+/// Reads a graph from a file with integer node IDs and integer edge weights.
+///
+/// Example:
+/// ```
+/// // test.ew
+/// 0 1 1
+/// 1 2 1
+/// 2 0 3
+/// ```
+///
+/// ```rust
+/// let graph = from_file_ew::<i32, i32>("test.ew").unwrap();
+/// assert_eq!(graph.order(), 3);
+/// ```
 pub fn from_file_ew<V: Vertex, E: Edge>(path: &str) -> std::io::Result<Graph<V, E>>
 where
     V: Debug + PartialOrd + Hash + Eq + Copy + FromStr,
