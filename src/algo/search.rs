@@ -60,6 +60,7 @@ pub fn bfs<'a, V: Vertex, E: Edge>(
 }
 
 
+/// Keeps track of depth-first search progress.
 pub struct Dfs<'a, V: Vertex, E: Edge> {
     pub stack: Vec<&'a V>,
     pub seen: HashSet<&'a V>,
@@ -93,7 +94,7 @@ impl <'a, V: Vertex, E: Edge> Dfs<'a, V, E> {
     }
 }
 
-
+/// Performs a breadth-first search of a given graph.
 pub fn dfs<'a, V: Vertex, E: Edge>(
     start: &'a V,
     end: Option<&'a V>,
